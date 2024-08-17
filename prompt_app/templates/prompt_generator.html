@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Image Prompt Generator</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"> 
+  <script src="https://cdn.tailwindcss.com"></script> 
+  <style>
+    @media (min-width: 1024px) { 
+      .sticky-form {
+        position: sticky;
+        top: 1rem;
+        height: fit-content;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans">
+  <div class="container mx-auto p-8">
+    <h1 class="text-4xl font-bold text-gray-800 mb-6">Generate Your Image Prompt</h1> 
+
+    <div class="flex flex-col lg:flex-row gap-8"> 
+
+      <div class="lg:w-1/3 mb-8 lg:mb-0 sticky-form"> 
+        <form class="mt-6 space-y-4">
+          <div>
+            <label for="character_name" class="block text-gray-700">Character Name (optional):</label>
+            <input type="text" name="character_name" id="character_name" class="w-full px-4 py-2 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500">
+          </div> 
+
+          <div class="flex space-x-4">
+            <button type="button" onclick="updatePrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+              Generate Prompt
+            </button>
+            <button type="button" onclick="generateRandomPrompt()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">
+              Random Prompt
+            </button>
+          </div>
+
+          <div class="mt-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Generated Prompt:</h2>
+            <p id="prompt-display" class="text-lg text-gray-700"></p>
+          </div>
+        </form> 
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:w-2/3"> 
+        {% for category, subcategories in categories.items %}
+          <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">{{ category }}</h2>
+            <ul class="space-y-2">
+              {% for subcategory, items in subcategories.items %}
+                <li> 
+                  <div class="flex items-center mb-2"> 
+                    <label for="lock-{{ category }}-{{ subcategory }}" class="mr-2 text-gray-700">{{ subcategory }}</label>
+                    <input type="checkbox" name="lock:{{ category }}:{{ subcategory }}" id="lock-{{ category }}-{{ subcategory }}" class="form-checkbox h-4 w-4 text-indigo-600"> 
+                  </div>
+                  <ul class="ml-4 space-y-1">
+                    {% for item in items %}
+                      <li>
+                        <div class="flex items-center">
+                          <input type="checkbox" name="{{ category }}:{{ subcategory }}" value="{{ item }}" id="{{ category }}-{{ subcategory }}-{{ item }}" class="form-checkbox h-4 w-4 text-indigo-600">
+                          <label for="{{ category }}-{{ subcategory }}-{{ item }}" class="ml-2 text-gray-700">{{ item }}</label>
+                        </div>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+ function updatePrompt() {
+      let selectedItems = {};
+      let checkboxes = document.querySelectorAll('input[type="checkbox"]:checked:not([name^="lock:"])');
+      checkboxes.forEach(checkbox => {
+        let nameParts = checkbox.name.split(":");
+        let category = nameParts[0];
+        let subcategory = nameParts[1];
+        if (!(category in selectedItems)) {
+          selectedItems[category] = [];
+        }
+        selectedItems[category].push(subcategory + ":" + checkbox.value);
+      });
+      let characterName = document.getElementById('character_name').value;
+
+      let data = JSON.stringify({
+        selected_items: selectedItems,
+        character_name: characterName
+      });
+
+      fetch('/generate-prompt/', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: data
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('prompt-display').textContent = data.prompt;
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+    }
+
+    function generateRandomPrompt() {
+      let categories = document.querySelectorAll('.bg-white'); 
+      categories.forEach(category => {
+        let subcategories = category.querySelectorAll('li:not(.flex)'); 
+        subcategories.forEach(subcategory => {
+          let lockCheckbox = subcategory.querySelector('input[name^="lock:"]');
+          let checkboxesInSubcategory = subcategory.querySelectorAll('input[type="checkbox"]:not([name^="lock:"])');
+
+          if (lockCheckbox) { 
+            if (lockCheckbox.checked) { 
+            } else {
+              checkboxesInSubcategory.forEach(checkbox => {
+                checkbox.checked = false; 
+              });
+              let randomIndex = Math.floor(Math.random() * checkboxesInSubcategory.length);
+              if (checkboxesInSubcategory[randomIndex]) { 
+                checkboxesInSubcategory[randomIndex].checked = true; 
+              }
+            }
+          }
+        });
+      });
+      updatePrompt(); 
+    }
+
+    let allCheckboxes = document.querySelectorAll('input[type="checkbox"]');
+    allCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updatePrompt);
+    });
+  </script>
+
+</body>
+</html>
